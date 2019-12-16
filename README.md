@@ -39,7 +39,6 @@ this does return a OAUTH token which will be required in all subsequent requests
 ## getNameservers(token,domain):Promise
 returns Nameservers of given domain as object
 ```
-
 var ns = await api.getNameservers(token,'example.net')
 
 // returns
