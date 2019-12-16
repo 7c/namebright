@@ -1,11 +1,22 @@
 {
   "name": "namebright",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/7c/namebright"
+  },
+  "keywords": [
+    "namebright",
+    "namebright.com",
+    "domain api",
+    "registar api",
+    "namebright api"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {

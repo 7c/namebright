@@ -117,12 +117,15 @@ class NameBright {
                 if (Object.keys(data).length>0) endpoint=`${endpoint}?${qs.stringify(data)}`
             } else data = qs.stringify(data)
             try {
-                var res = await axios({
+                var req = {
                     method,
                     url: apiUrl+endpoint,
                     data,
                     headers
-                })
+                }
+                debug(`request:`,req)
+                var res = await axios(req)
+                debug(`response:`,res.data)
                 // console.log(res.request)
                 resolve(res.data)
             }
