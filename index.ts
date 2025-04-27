@@ -12,13 +12,20 @@ export interface AuthConfig {
   appSecret: string
 }
 
+export interface NameBrightDomainsPage {
+  ResultsTotal: number
+  CurrentPage: number
+  Domains: NameBrightDomain[]
+}
+
+
 export interface NameBrightOpts {
   /** Override API root (default `https://api.namebright.com`). */
   apiUrl?: string
 }
 
 export interface NameBrightAccountResponse {
-  AccountBalance: number  
+  AccountBalance: number
 }
 
 export interface NameBrightNameserversResponse {
@@ -85,12 +92,46 @@ export class NameBright {
   }
 
   /** GET /rest/account/domains */
-  async getDomains(page = 1, perPage = 20): Promise<NameBrightDomain[]> {
+  // async getDomains(page = 1, perPage = 20): Promise<NameBrightDomain[]> {
+  //   debug('getDomains', { page, perPage })
+  //   return this.request<NameBrightDomain[]>('get', '/rest/account/domains', {
+  //     page,
+  //     domainsPerPage: perPage
+  //   })
+  // }
+
+  async getDomains(
+    page = 1,
+    perPage = 20
+  ): Promise<NameBrightDomainsPage> {
     debug('getDomains', { page, perPage })
-    return this.request<NameBrightDomain[]>('get', '/rest/account/domains', {
+    return this.request<NameBrightDomainsPage>('get', '/rest/account/domains', {
       page,
       domainsPerPage: perPage
     })
+  }
+
+  /** 
+   * Async generator that lazily iterates over every domain in the account.
+   *
+   * ```ts
+   * for await (const d of nb.fetchDomains()) {
+   *   console.log(d.DomainName)
+   * }
+   * ```
+   *
+   * @param perPage  requested page size (NameBright max = 20)
+   */
+  // put this *inside* the NameBright class body
+  public async *fetchDomains(
+    perPage = 20
+  ): AsyncGenerator<NameBrightDomain, void, unknown> {
+    for (let page = 1; ; page++) {
+      const { Domains } = await this.getDomains(page, perPage)
+      if (!Domains.length) return          // nothing retrieved
+      for (const d of Domains) yield d
+      if (Domains.length < perPage) return // reached last page
+    }
   }
 
   async getDomain(domain: string): Promise<NameBrightDomain> {
@@ -125,7 +166,7 @@ export class NameBright {
     if (years < 1 || years > 10)
       throw new Error('Invalid years: min 1 / max 10 required')
     debug('renewDomain', domain, years)
-    return this.request<NameBrightRenewResponse>('post', `/rest/purchase/renew`,{
+    return this.request<NameBrightRenewResponse>('post', `/rest/purchase/renew`, {
       DomainName: domain,
       Years: years
     })

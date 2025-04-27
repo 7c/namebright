@@ -1,4 +1,17 @@
 "use strict";
+var __await = (this && this.__await) || function (v) { return this instanceof __await ? (this.v = v, this) : new __await(v); }
+var __asyncGenerator = (this && this.__asyncGenerator) || function (thisArg, _arguments, generator) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var g = generator.apply(thisArg, _arguments || []), i, q = [];
+    return i = Object.create((typeof AsyncIterator === "function" ? AsyncIterator : Object).prototype), verb("next"), verb("throw"), verb("return", awaitReturn), i[Symbol.asyncIterator] = function () { return this; }, i;
+    function awaitReturn(f) { return function (v) { return Promise.resolve(v).then(f, reject); }; }
+    function verb(n, f) { if (g[n]) { i[n] = function (v) { return new Promise(function (a, b) { q.push([n, v, a, b]) > 1 || resume(n, v); }); }; if (f) i[n] = f(i[n]); } }
+    function resume(n, v) { try { step(g[n](v)); } catch (e) { settle(q[0][3], e); } }
+    function step(r) { r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r); }
+    function fulfill(value) { resume("next", value); }
+    function reject(value) { resume("throw", value); }
+    function settle(f, v) { if (f(v), q.shift(), q.length) resume(q[0][0], q[0][1]); }
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -37,11 +50,43 @@ class NameBright {
         return this.request('get', '/rest/account');
     }
     /** GET /rest/account/domains */
+    // async getDomains(page = 1, perPage = 20): Promise<NameBrightDomain[]> {
+    //   debug('getDomains', { page, perPage })
+    //   return this.request<NameBrightDomain[]>('get', '/rest/account/domains', {
+    //     page,
+    //     domainsPerPage: perPage
+    //   })
+    // }
     async getDomains(page = 1, perPage = 20) {
         debug('getDomains', { page, perPage });
         return this.request('get', '/rest/account/domains', {
             page,
             domainsPerPage: perPage
+        });
+    }
+    /**
+     * Async generator that lazily iterates over every domain in the account.
+     *
+     * ```ts
+     * for await (const d of nb.fetchDomains()) {
+     *   console.log(d.DomainName)
+     * }
+     * ```
+     *
+     * @param perPage  requested page size (NameBright max = 20)
+     */
+    // put this *inside* the NameBright class body
+    fetchDomains() {
+        return __asyncGenerator(this, arguments, function* fetchDomains_1(perPage = 20) {
+            for (let page = 1;; page++) {
+                const { Domains } = yield __await(this.getDomains(page, perPage));
+                if (!Domains.length)
+                    return yield __await(void 0); // nothing retrieved
+                for (const d of Domains)
+                    yield yield __await(d);
+                if (Domains.length < perPage)
+                    return yield __await(void 0); // reached last page
+            }
         });
     }
     async getDomain(domain) {

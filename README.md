@@ -1,14 +1,10 @@
 # NameBright API Client
+
 A TypeScript client for the [NameBright REST API](https://api.namebright.com). This library provides a typed, lightweight wrapper for managing domains, nameservers, renewals, and account details, with automatic token management and debug logging.
 
-
-- API Documentation at https://api.namebright.com/rest/Help
-- Examples at https://github.com/NameBright/DomainApiClientExamples
-- Access to API Requires special authorization from Registrar applied at legacy url https://legacy.namebright.com/Settings#Api
-
-## Installation
-`npm i namebright --save`
-
+- **API Documentation**: [https://api.namebright.com/rest/Help](https://api.namebright.com/rest/Help)
+- **Examples**: [https://github.com/NameBright/DomainApiClientExamples](https://github.com/NameBright/DomainApiClientExamples)
+- **API Access**: Requires authorization from NameBright, configured at [https://legacy.namebright.com/Settings#Api](https://legacy.namebright.com/Settings#Api)
 
 ## Features
 
@@ -17,6 +13,7 @@ A TypeScript client for the [NameBright REST API](https://api.namebright.com). T
 - **Debug Logging**: Built-in logging via the `debug` package.
 - **Custom Requests**: Access the underlying Axios instance for flexibility.
 - **Comprehensive API**: Supports domain queries, nameserver updates, renewals, and account summaries.
+- **Lazy Domain Iteration**: Async generator for efficiently iterating over all domains.
 
 ## Installation
 
@@ -26,9 +23,27 @@ Install the package via npm:
 npm install --save namebright
 ```
 
-## IP Restriction
-You might get `400 Usage Violation` if you have not added a whitelisted ip inside your account at [https://legacy.namebright.com/Settings#Api], so IP Whitelisting seems to be mandatory. I have tried to whitelist all IPs with '0.0.0.0' but it did not work. You might check [ip8.com](https://ip8.com) to get your external IP and whitelist it.
+Required dependencies:
 
+- `axios`
+- `query-string`
+- `debug`
+
+Install them with:
+
+```bash
+npm install axios query-string debug
+```
+
+For TypeScript, include type definitions:
+
+```bash
+npm install @types/debug --save-dev
+```
+
+## IP Restriction
+
+You may encounter a `400 Usage Violation` error if your IP is not whitelisted. Configure IP whitelisting in your NameBright account at [https://legacy.namebright.com/Settings#Api](https://legacy.namebright.com/Settings#Api). Note: Using `0.0.0.0` to whitelist all IPs is not supported. Find your external IP at [ip8.com](https://ip8.com) and whitelist it.
 
 ## Usage
 
@@ -66,8 +81,19 @@ console.log('Account Balance:', account.AccountBalance);
 #### List Domains
 
 ```typescript
-const domains = await client.getDomains(1, 20);
-console.log('First 20 Domains:', domains);
+const page = await client.getDomains(1, 20);
+console.log('Domains:', page.Domains);
+console.log('Total Results:', page.ResultsTotal);
+```
+
+#### Iterate Over All Domains
+
+Use the async generator to lazily fetch all domains:
+
+```typescript
+for await (const domain of client.fetchDomains(20)) {
+  console.log('Domain:', domain.DomainName);
+}
 ```
 
 #### Get Domain Details
@@ -115,7 +141,7 @@ Required credentials:
 - `appName`: Your registered application name.
 - `appSecret`: Your application secret key.
 
-Obtain these from your NameBright account dashboard.
+Obtain these from your NameBright account dashboard at [https://legacy.namebright.com/Settings#Api](https://legacy.namebright.com/Settings#Api).
 
 ### Options
 
@@ -137,8 +163,10 @@ This logs HTTP requests, token fetches, and API responses.
 
 - `getAccount(): Promise<NameBrightAccountResponse>`
   - Fetches the account balance.
-- `getDomains(page?: number, perPage?: number): Promise<NameBrightDomain[]>`
-  - Lists domains with pagination.
+- `getDomains(page?: number, perPage?: number): Promise<NameBrightDomainsPage>`
+  - Lists domains with pagination, returning total results, current page, and domains.
+- `fetchDomains(perPage?: number): AsyncGenerator<NameBrightDomain, void, unknown>`
+  - Lazily iterates over all domains in the account (max `perPage` is 20).
 - `getDomain(domain: string): Promise<NameBrightDomain>`
   - Retrieves details for a specific domain.
 - `getNameservers(domain: string): Promise<string[]>`
@@ -158,6 +186,7 @@ This logs HTTP requests, token fetches, and API responses.
 
 - `AuthConfig`: `{ accountLogin: string, appName: string, appSecret: string }`
 - `NameBrightAccountResponse`: `{ AccountBalance: number }`
+- `NameBrightDomainsPage`: `{ ResultsTotal: number, CurrentPage: number, Domains: NameBrightDomain[] }`
 - `NameBrightDomain`: Domain details (name, status, expiration, etc.).
 - `NameBrightNameserversResponse`: `{ DomainName: string, NameServers: string[] }`
 - `NameBrightRenewResponse`: Renewal order details (order ID, price, etc.).
@@ -176,9 +205,25 @@ Handle errors with try-catch:
 
 ```typescript
 try {
-  const domains = await client.getDomains();
-  console.log(domains);
+  const page = await client.getDomains();
+  console.log(page.Domains);
 } catch (error) {
   console.error('Error:', error.message);
 }
 ```
+
+## Contributing
+
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/your-feature`).
+3. Commit changes (`git commit -m 'Add your feature'`).
+4. Push to the branch (`git push origin feature/your-feature`).
+5. Open a pull request.
+
+## License
+
+MIT License. See the [LICENSE](LICENSE) file.
+
+## Support
+
+For issues, open a ticket on the [GitHub repository](https://github.com/7c/namebright) or contact the maintainers.

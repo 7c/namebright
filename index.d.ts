@@ -4,6 +4,11 @@ export interface AuthConfig {
     appName: string;
     appSecret: string;
 }
+export interface NameBrightDomainsPage {
+    ResultsTotal: number;
+    CurrentPage: number;
+    Domains: NameBrightDomain[];
+}
 export interface NameBrightOpts {
     /** Override API root (default `https://api.namebright.com`). */
     apiUrl?: string;
@@ -50,7 +55,19 @@ export declare class NameBright {
     /** GET /rest/account (account summary) */
     getAccount(): Promise<NameBrightAccountResponse>;
     /** GET /rest/account/domains */
-    getDomains(page?: number, perPage?: number): Promise<NameBrightDomain[]>;
+    getDomains(page?: number, perPage?: number): Promise<NameBrightDomainsPage>;
+    /**
+     * Async generator that lazily iterates over every domain in the account.
+     *
+     * ```ts
+     * for await (const d of nb.fetchDomains()) {
+     *   console.log(d.DomainName)
+     * }
+     * ```
+     *
+     * @param perPage  requested page size (NameBright max = 20)
+     */
+    fetchDomains(perPage?: number): AsyncGenerator<NameBrightDomain, void, unknown>;
     getDomain(domain: string): Promise<NameBrightDomain>;
     /** GET /rest/account/domains/:domain/nameservers */
     getNameservers(domain: string): Promise<string[]>;
