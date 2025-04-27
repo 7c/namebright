@@ -1,96 +1,184 @@
-# NameBright API
-this is bare minimum implementation but very good start for many purphoses in order to work with NameBright Domains API.
+# NameBright API Client
+A TypeScript client for the [NameBright REST API](https://api.namebright.com). This library provides a typed, lightweight wrapper for managing domains, nameservers, renewals, and account details, with automatic token management and debug logging.
+
 
 - API Documentation at https://api.namebright.com/rest/Help
 - Examples at https://github.com/NameBright/DomainApiClientExamples
-- Access to API Requires special authorization from Registrar
-
-This Library works with their RESTful API Backend
-
-## Bash Examples
-might be useful sometimes as reference
-[https://github.com/NameBright/DomainApiClientExamples/blob/master/BashCurl/exampleapiscript.sh]
-
-## IP Restriction
-you might get `400 Usage Violation` if you have not added a whitelisted ip inside your account at [https://www.namebright.com/Settings#Api], so IP Whitelisting seems to be mandatory
-
+- Access to API Requires special authorization from Registrar applied at legacy url https://legacy.namebright.com/Settings#Api
 
 ## Installation
 `npm i namebright --save`
 
+
+## Features
+
+- **Automatic Token Management**: Handles token fetching and caching.
+- **Typed Interfaces**: Strongly-typed responses for account, domains, nameservers, and renewals.
+- **Debug Logging**: Built-in logging via the `debug` package.
+- **Custom Requests**: Access the underlying Axios instance for flexibility.
+- **Comprehensive API**: Supports domain queries, nameserver updates, renewals, and account summaries.
+
+## Installation
+
+Install the package via npm:
+
+```bash
+npm install --save namebright
+```
+
+## IP Restriction
+You might get `400 Usage Violation` if you have not added a whitelisted ip inside your account at [https://legacy.namebright.com/Settings#Api], so IP Whitelisting seems to be mandatory. I have tried to whitelist all IPs with '0.0.0.0' but it did not work. You might check [ip8.com](https://ip8.com) to get your external IP and whitelist it.
+
+
 ## Usage
-```
-var NameBright = require('namebright')
 
-var api = new NameBright({
-            accountLogin:'<.. your account username ..>',
-            appName:'<.. Name of your App..>',
-            appSecret:'<.. Given Secret .>'
-})
+### Initialize the Client
 
-// we will need this token everywhere
-var token = await api.connect()
-```
+Create a `NameBright` instance with your authentication credentials:
 
-# Methods
-## connect():Promise
-this does return a OAUTH token which will be required in all subsequent requests towards NameBright API
+```typescript
+import { NameBright, AuthConfig } from 'namebright';
 
-## getNameservers(token,domain):Promise
-returns Nameservers of given domain as object
-```
-var ns = await api.getNameservers(token,'example.net')
+const auth: AuthConfig = {
+  accountLogin: 'your-account-login',
+  appName: 'your-app-name',
+  appSecret: 'your-app-secret',
+};
 
-// returns
-{ DomainName: 'example.net',
-  NameServers:
-   [ 'yournameserver1.com',
-     'yournameserver2.com',
-     'yournameserver3.com',
-     'yournameserver4.com' ] }
+const client = new NameBright(auth);
 ```
 
-## setNameservers(token,domain,nameservers):Promise
-expects minimum nameservers inside nameservers array to be submitted. The way NB API is implemented is, that we first need to delete all Nameservers assigned to that domain with DELETE method then add namevers 1 by 1. Maximum 4 nameservers are allowed at NB. Make sure to capture all errors on this specific wrapper which does multiple API operations. 
+Override the default API URL if needed:
+
+```typescript
+const client = new NameBright(auth, { apiUrl: 'https://custom-api.namebright.com' });
 ```
-var setResponse = await api.setNameservers(token,'taxproject.com',['ns-124.awsdns-15.com','ns-964.awsdns-56.net','ns-1203.awsdns-22.org','ns-1736.awsdns-25.co.uk'])
-if (setResponse && setResponse.length==4) {
-            console.log(`Nameservers were set properly as : ${setResponse.join(',')}`)
-} else {
-    // some or all nameservers are not set
-    // your domain might be without a nameserver!
+
+### Examples
+
+#### Get Account Balance
+
+```typescript
+const account = await client.getAccount();
+console.log('Account Balance:', account.AccountBalance);
+```
+
+#### List Domains
+
+```typescript
+const domains = await client.getDomains(1, 20);
+console.log('First 20 Domains:', domains);
+```
+
+#### Get Domain Details
+
+```typescript
+const domain = await client.getDomain('example.com');
+console.log('Domain Status:', domain.Status);
+```
+
+#### Renew a Domain
+
+```typescript
+const renewal = await client.renewDomain('example.com', 2);
+console.log('Renewal Order ID:', renewal.OrderId);
+```
+
+#### Manage Nameservers
+
+```typescript
+const nameservers = await client.getNameservers('example.com');
+console.log('Nameservers:', nameservers);
+
+const newNameservers = ['ns1.example.com', 'ns2.example.com'];
+const applied = await client.setNameservers('example.com', newNameservers);
+console.log('Applied Nameservers:', applied);
+```
+
+#### Custom Requests
+
+Use the underlying Axios instance for custom API calls:
+
+```typescript
+const axiosInstance = client.getClient();
+const response = await axiosInstance.get('/rest/custom/endpoint');
+console.log('Custom Response:', response.data);
+```
+
+## Configuration
+
+### Authentication
+
+Required credentials:
+
+- `accountLogin`: Your NameBright account login.
+- `appName`: Your registered application name.
+- `appSecret`: Your application secret key.
+
+Obtain these from your NameBright account dashboard.
+
+### Options
+
+- `apiUrl`: Override the default API root (`https://api.namebright.com`).
+
+### Debugging
+
+Enable debug logs with the `DEBUG` environment variable:
+
+```bash
+DEBUG=NameBright node your-script.js
+```
+
+This logs HTTP requests, token fetches, and API responses.
+
+## API Reference
+
+### Methods
+
+- `getAccount(): Promise<NameBrightAccountResponse>`
+  - Fetches the account balance.
+- `getDomains(page?: number, perPage?: number): Promise<NameBrightDomain[]>`
+  - Lists domains with pagination.
+- `getDomain(domain: string): Promise<NameBrightDomain>`
+  - Retrieves details for a specific domain.
+- `getNameservers(domain: string): Promise<string[]>`
+  - Gets the nameservers for a domain.
+- `deleteNameservers(domain: string): Promise<void>`
+  - Deletes all nameservers for a domain.
+- `deleteNameserver(domain: string, nameserver: string): Promise<void>`
+  - Deletes a specific nameserver.
+- `renewDomain(domain: string, years?: number): Promise<NameBrightRenewResponse>`
+  - Renews a domain for 1–10 years.
+- `setNameservers(domain: string, nameservers: string[]): Promise<string[]>`
+  - Sets nameservers (2–4 required).
+- `getClient(): AxiosInstance`
+  - Returns the Axios instance for custom requests.
+
+### Interfaces
+
+- `AuthConfig`: `{ accountLogin: string, appName: string, appSecret: string }`
+- `NameBrightAccountResponse`: `{ AccountBalance: number }`
+- `NameBrightDomain`: Domain details (name, status, expiration, etc.).
+- `NameBrightNameserversResponse`: `{ DomainName: string, NameServers: string[] }`
+- `NameBrightRenewResponse`: Renewal order details (order ID, price, etc.).
+
+## Error Handling
+
+The client throws errors for:
+
+- Missing or invalid authentication credentials.
+- Invalid renewal years (1–10 required).
+- Invalid nameserver count (2–4 required).
+- Token acquisition failures.
+- API request errors (via Axios).
+
+Handle errors with try-catch:
+
+```typescript
+try {
+  const domains = await client.getDomains();
+  console.log(domains);
+} catch (error) {
+  console.error('Error:', error.message);
 }
-```
-this api call might reject or return a all or parts of the namervers as an array. Ideally you should get same amount of nameservers back as your input. If you have submitted 4 and returned 3, this means only 3 nameservers could be set. I implemented this way because once we have successfully deleted all nameservers, we should try to insert as many nameservers as possible. You at your code check how many could indeed be set. You might also call getNameservers method to verify but this is an extra call
-
-## getDomains(token,page=1,domainsPerPage=20):Promise
-this will fetch $domainsPerPage domains per page starting from page $page. NB allows maximum 100 domains per page, this snippet might be useful to fetch all domains from your account:
-```
-// list all domains in account
-var page=1
-var domainsPerPage=33
-var allDomains=[]
-while(true) {
-    console.log(`Reading ${domainsPerPage} domains from page ${page}`)
-    var domains = await api.getDomains(token,page,domainsPerPage)
-    if (domains && domains.hasOwnProperty('Domains') && domains.Domains.length>0)
-    {
-        allDomains=allDomains.concat(domains.Domains)
-        if (domains.CurrentPage*domainsPerPage<domains.ResultsTotal) {
-            page++
-            continue
-        }
-    }
-    console.log(`Read ${allDomains.length} domains from Namebright`)
-    break
-}
-```
-
-
-# Debugging
-I am using internally the `debug` package for debugging purphoses. You will see more details if DEBUG= env variable has been set
-```
-DEBUG=* node <yourcode.js>
-// or
-DEBUG=Name* node <yourcode.js>
 ```

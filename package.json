@@ -1,10 +1,12 @@
 {
   "name": "namebright",
-  "version": "1.0.3",
+  "version": "2.0.1",
   "description": "",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
   },
   "repository": {
     "type": "git",
@@ -17,12 +19,16 @@
     "registar api",
     "namebright api"
   ],
-  "author": "",
+  "author": "7c@github",
   "license": "ISC",
   "dependencies": {
     "axios": "^0.21.1",
     "debug": "^4.1.1",
+    "module-alias": "^2.2.3",
     "query-string": "^6.9.0",
     "querystring": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2"
   }
 }

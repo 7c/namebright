@@ -1,140 +1,155 @@
-var debug = require('debug')('NameBright')
-var axios = require('axios')
-var qs = require('query-string')
-var apiUrl = 'https://api.namebright.com'
-
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.NameBright = void 0;
+// api/NameBright.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const axios_1 = __importDefault(require("axios"));
+const debug_1 = __importDefault(require("debug"));
+const query_string_1 = __importDefault(require("query-string"));
+const debug = (0, debug_1.default)('NameBright');
+/**
+ * Thin wrapper for the NameBright REST API (auto-token, typed, debug-logged).
+ */
 class NameBright {
-    constructor(auth) {
-        this.auth = auth
-        this.token = false
-        if (!auth.hasOwnProperty('accountLogin') || !auth.hasOwnProperty('appName') ||!auth.hasOwnProperty('appSecret'))
-            throw new Error('Unknown authentication details for NameBright')
-        
+    constructor(auth, opts = {}) {
+        var _a;
+        /* token cache */
+        this.token = null;
+        this.tokenExpires = 0;
+        this.tokenPromise = null;
+        if (!auth.accountLogin || !auth.appName || !auth.appSecret)
+            throw new Error('Unknown authentication details for NameBright');
+        this.auth = auth;
+        this.apiUrl = (_a = opts.apiUrl) !== null && _a !== void 0 ? _a : 'https://api.namebright.com';
+        this.http = axios_1.default.create({
+            baseURL: this.apiUrl,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            paramsSerializer: (p) => query_string_1.default.stringify(p)
+        });
     }
-
-    // https://api.namebright.com/rest/Help/Api/GET-account-domains_page_domainsPerPage
-    async getDomains(token,page=1,domainsPerPage=20) {
-        var that = this
-        debug(`getDomains(token,${page},${domainsPerPage})`)
-        return new Promise(async function (resolve,reject) {
-            try {
-                var res = await that.doRequest('get','/rest/account/domains',{
-                    page,
-                    domainsPerPage
-                },{
-                    headers:{Authorization:`Bearer ${token}`}
-                })
-                // console.log(res)
-                // process.exit(0)
-                resolve(res)
-            }catch(err) { reject(err)}
-        })
+    /* ---------- public API wrappers ---------- */
+    /** GET /rest/account (account summary) */
+    async getAccount() {
+        debug('getAccount');
+        return this.request('get', '/rest/account');
     }
-
-    // https://api.namebright.com/rest/Help/Api/GET-account-domains-domain-nameservers
-    async getNameservers(token,domain) {
-        var that = this
-        return new Promise(async function (resolve,reject) {
-            try {
-                var res = await that.doRequest('get',`/rest/account/domains/${domain}/nameservers`,{
-                },{headers:{Authorization:`Bearer ${token}`}})
-                resolve(res)
-            }catch(err) { reject(err)}
-        })
+    /** GET /rest/account/domains */
+    async getDomains(page = 1, perPage = 20) {
+        debug('getDomains', { page, perPage });
+        return this.request('get', '/rest/account/domains', {
+            page,
+            domainsPerPage: perPage
+        });
     }
-
-    // https://api.namebright.com/rest/Help/Api/PUT-account-domains-domain-nameservers-nameServer
-    async setNameservers(token,domain,nameservers) {
-        
-        var that = this
-        return new Promise(async function (resolve,reject) {
-            if (!nameservers || typeof nameservers!=='object' || nameservers.lenght<2 || nameservers.lenght>2) 
-                return reject('invalid nameservers, array of minimum 2, maximum  4 nameservers are required')
-            try {
-                // we first need to delete all nameservers ! crazy!!
-                // https://api.namebright.com/rest/Help/Api/DELETE-account-domains-domain-nameservers
-                var res = await that.doRequest('delete',`/rest/account/domains/${domain}/nameservers`,{
-                },{headers:{Authorization:`Bearer ${token}`}})
-                console.log(`NS deleted:`,res)
-                if (res && res.hasOwnProperty('DomainName') && res.hasOwnProperty('NameServers') && res.NameServers.length==0) {
-                    debug(`All nameservers for ${domain} are deleted`)
-                    // then add new nameservers 1 by 1
-                    var setNameservers=[]
-                    for(var ns of nameservers) {
-                        try {
-                            debug(`setting nameserver ${ns}`)
-                            var res = await that.doRequest('put',`/rest/account/domains/${domain}/nameservers/${ns}`,{
-                            },{headers:{Authorization:`Bearer ${token}`}})
-                            if (res===ns) setNameservers.push(res)
-                        }catch(err2) {
-                            // ignore
-                        }
-                    }
-                    resolve(setNameservers)
-                }
-                
-                
-                // resolve(res)
-            }catch(err) { reject(err)}
-        })
+    async getDomain(domain) {
+        debug('getDomain', domain);
+        return this.request('get', `/rest/account/domains/${domain}`);
     }
-
-    async connect() {
-        var auth = this.auth
-        var that = this
-        return new Promise(async function (resolve,reject) {
-            
-            // get a token
-            try {
-                var token = await that.doRequest('post','/auth/token',{
-                    grant_type:'client_credentials',
-                    client_id:`${auth.accountLogin}:${auth.appName}`,
-                    client_secret:auth.appSecret
-                })
-                debug(`token=`,token)
-                if (token && token.hasOwnProperty('access_token'))
-                    return resolve(token.access_token)
-            
-                // unexpected response
-                debug(`unexpected response from token`)
-                reject(token)
-            }
-            catch(err) {
-                debug(`Exception inside connect:`,err)
-                reject(err)
-            }
-            // resolve(token)    
-        })
-        
+    /** GET /rest/account/domains/:domain/nameservers */
+    async getNameservers(domain) {
+        debug('getNameservers', domain);
+        const res = await this.request('get', `/rest/account/domains/${domain}/nameservers`);
+        return res.NameServers;
     }
-
-    doRequest(method,endpoint,data={},AdditionalAxiosOptions={}){
-        var that = this
-        debug(`doRequest ${method} ${endpoint}`)
-        return new Promise(async function (resolve,reject) {
-            var { headers } = AdditionalAxiosOptions
-            if (method==='get') {
-                if (Object.keys(data).length>0) endpoint=`${endpoint}?${qs.stringify(data)}`
-            } else data = qs.stringify(data)
-            try {
-                var req = {
-                    method,
-                    url: apiUrl+endpoint,
-                    data,
-                    headers
-                }
-                debug(`request:`,req)
-                var res = await axios(req)
-                debug(`response:`,res.data)
-                // console.log(res.request)
-                resolve(res.data)
-            }
-            catch(err) {
-                reject(err)
-            }
-            
-        })
+    async deleteNameservers(domain) {
+        debug('deleteNameservers', domain);
+        await this.request('delete', `/rest/account/domains/${domain}/nameservers`);
+    }
+    async deleteNameserver(domain, nameserver) {
+        debug('deleteNameserver', domain, nameserver);
+        await this.request('delete', `/rest/account/domains/${domain}/nameservers/${nameserver}`);
+    }
+    /** POST /rest/purchase/renew
+     * @see https://api.namebright.com/rest/Help/Api/POST-purchase-renew
+     * @param domain - The domain name to renew
+     * @param years - The number of years to renew the domain for (min 1 / max 10)
+     * @returns NameBrightRenewResponse
+    */
+    async renewDomain(domain, years = 1) {
+        if (years < 1 || years > 10)
+            throw new Error('Invalid years: min 1 / max 10 required');
+        debug('renewDomain', domain, years);
+        return this.request('post', `/rest/purchase/renew`, {
+            DomainName: domain,
+            Years: years
+        });
+    }
+    /** PUT nameservers (deletes all first, then adds) */
+    async setNameservers(domain, nameservers) {
+        if (!Array.isArray(nameservers) || nameservers.length < 2 || nameservers.length > 4)
+            throw new Error('Invalid nameservers: min 2 / max 4 required');
+        // we need to delete all existing nameservers first
+        await this.deleteNameservers(domain);
+        const applied = [];
+        for (const ns of nameservers) {
+            debug('setNameserver', domain, ns);
+            const res = await this.request('put', `/rest/account/domains/${domain}/nameservers/${ns}`);
+            if (res === ns)
+                applied.push(ns); // API echoes string
+        }
+        return applied;
+    }
+    /**
+     * Get the underlying Axios instance to make raw requests.
+     * This instance handles token fetching and caching
+     * @returns AxiosInstance
+     * */
+    getClient() {
+        return this.http;
+    }
+    /* ---------- internals ---------- */
+    /** Low-level helper (adds token, logs). */
+    async request(method, endpoint, data = {}) {
+        var _a;
+        const cfg = {
+            method,
+            url: endpoint,
+            headers: { Authorization: `Bearer ${await this.getToken()}` }
+        };
+        if (method.toLowerCase() === 'get')
+            cfg.params = data;
+        else
+            cfg.data = query_string_1.default.stringify(data);
+        debug('HTTP >', (_a = cfg.method) === null || _a === void 0 ? void 0 : _a.toUpperCase(), cfg.url, data);
+        const { data: res } = await this.http.request(cfg);
+        debug('HTTP <', res);
+        return res;
+    }
+    /** Cached token (single-flight). */
+    async getToken() {
+        const valid = this.token && Date.now() < this.tokenExpires - 60000;
+        if (valid)
+            return this.token;
+        if (this.tokenPromise)
+            return this.tokenPromise;
+        this.tokenPromise = this.fetchToken();
+        try {
+            return await this.tokenPromise;
+        }
+        finally {
+            this.tokenPromise = null;
+        }
+    }
+    /** POST /auth/token */
+    async fetchToken() {
+        debug('fetchToken');
+        const body = query_string_1.default.stringify({
+            grant_type: 'client_credentials',
+            client_id: `${this.auth.accountLogin}:${this.auth.appName}`,
+            client_secret: this.auth.appSecret
+        });
+        const { data } = await this.http.post('/auth/token', body);
+        const { access_token, expires_in = 3600 } = data || {};
+        if (!access_token)
+            throw new Error('Unable to obtain token');
+        this.token = access_token;
+        this.tokenExpires = Date.now() + expires_in * 1000;
+        debug('token acquired (expires in %ds)', expires_in);
+        return access_token;
     }
 }
-
-module.exports = NameBright
+exports.NameBright = NameBright;
+//# sourceMappingURL=index.js.map
