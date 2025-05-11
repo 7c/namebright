@@ -69,7 +69,7 @@ export class NameBright {
   private tokenExpires = 0
   private tokenPromise: Promise<string> | null = null
 
-  constructor(auth: AuthConfig, opts: NameBrightOpts = {}) {
+  constructor(auth: AuthConfig, opts: NameBrightOpts = {}, public readonly alias: string = 'namebright') {
     if (!auth.accountLogin || !auth.appName || !auth.appSecret)
       throw new Error('Unknown authentication details for NameBright')
 
@@ -99,7 +99,6 @@ export class NameBright {
   //     domainsPerPage: perPage
   //   })
   // }
-
   async getDomains(
     page = 1,
     perPage = 20

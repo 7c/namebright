@@ -45,13 +45,14 @@ export interface NameBrightRenewResponse {
  * Thin wrapper for the NameBright REST API (auto-token, typed, debug-logged).
  */
 export declare class NameBright {
+    readonly alias: string;
     private readonly auth;
     private readonly apiUrl;
     private readonly http;
     private token;
     private tokenExpires;
     private tokenPromise;
-    constructor(auth: AuthConfig, opts?: NameBrightOpts);
+    constructor(auth: AuthConfig, opts?: NameBrightOpts, alias?: string);
     /** GET /rest/account (account summary) */
     getAccount(): Promise<NameBrightAccountResponse>;
     /** GET /rest/account/domains */

@@ -27,8 +27,9 @@ const debug = (0, debug_1.default)('NameBright');
  * Thin wrapper for the NameBright REST API (auto-token, typed, debug-logged).
  */
 class NameBright {
-    constructor(auth, opts = {}) {
+    constructor(auth, opts = {}, alias = 'namebright') {
         var _a;
+        this.alias = alias;
         /* token cache */
         this.token = null;
         this.tokenExpires = 0;
